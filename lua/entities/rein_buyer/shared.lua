@@ -5,7 +5,7 @@ ENT.Category 		= "DESANTARP Stealing Kidney";
 ENT.Author			= "Skyyrize";
 ENT.Spawnable			= true;
 ENT.AdminSpawnable		= true;
-ENT.AutomaticFrameAdvance = true --<-- Laisser sur TRUE ("OBLIGATOIRE")
+ENT.AutomaticFrameAdvance = true 
 
 function ENT:SetAutomaticFrameAdvance(bUsingAnim) 
 	self.AutomaticFrameAdvance = bUsingAnim 
