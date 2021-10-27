@@ -21,8 +21,6 @@ if SERVER then
 	
 	AddCSLuaFile( "shared.lua" )
 	
-	util.AddNetworkString( "pickpocket_time" )
-	
 end
 
 if CLIENT then
@@ -62,21 +60,15 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = ""
 
+function SWEP:SetupDataTables()
+	self:NetworkVar( "Entity", 0, "Target" )
+    self:NetworkVar( "Int", 0, "StartPick" )
+    self:NetworkVar( "Int", 1, "EndPick" )
+end
+
 //Initialize\\
 function SWEP:Initialize()
 	self:SetWeaponHoldType( "normal" )
-end
-
-if CLIENT then
-	
-	net.Receive( "pickpocket_time", function()
-		local wep = net.ReadEntity()
-
-		wep.IsPickpocketing = true
-		wep.StartPick = CurTime()
-		wep.EndPick = CurTime() + PPConfig_Duration
-	end )
-	
 end
 
 //Primary Attack\\
@@ -84,7 +76,7 @@ function SWEP:PrimaryAttack()
 
 	self.Weapon:SetNextPrimaryFire( CurTime() + 2 )
 	
-	if self.IsPickpocketing then return end
+	if IsValid( self:GetTarget() ) then return end
 
 	local trace = self.Owner:GetEyeTrace()
 	local e = trace.Entity
@@ -100,15 +92,12 @@ function SWEP:PrimaryAttack()
 	end
 
 	if SERVER then
-		
-		self.IsPickpocketing = true
-		self.StartPick = CurTime()
-		
-		net.Start( "pickpocket_time" )
-		net.WriteEntity( self )
-		net.Send(self.Owner)
-		
-		self.EndPick = CurTime() + PPConfig_Duration
+
+        local curtime = CurTime()
+
+        self:SetTarget(e)
+        self:SetStartPick(curtime)
+        self:SetEndPick(curtime + PPConfig_Duration)
 		
 	end
 	
@@ -139,13 +128,14 @@ end
 //Holster\\
 function SWEP:Holster()
 
-	self.IsPickpocketing = false
+    self:SetTarget()
 	
 	if CLIENT then
 		timer.Destroy( "PickpocketDots" )
 	end
 	
 	return true
+
 end
 
 //OnRemove\\
@@ -156,52 +146,45 @@ end
 //Pickpocket Succeed\\
 function SWEP:Succeed()
 	
-	self.IsPickpocketing = false
-	
 	self:SetWeaponHoldType( "normal" )
-
+    
 	self.Weapon:SetNextPrimaryFire( CurTime() + PPConfig_Wait )
-	
-	local trace = self.Owner:GetEyeTrace()
 	
 	if CLIENT then
 		timer.Destroy( "PickpocketDots" )
 	end
-
-
+    
 	if SERVER then
-		
-	if (trace.Entity:GetNWInt("player_rein_amout") < 1) then
-		rein = ents.Create( "rein_kidney" );
-		rein:SetPos(trace.HitPos);
-		rein:Spawn()
-		rein:GetPhysicsObject():SetVelocity((rein:GetForward()*-16)+(rein:GetUp()*8));
-		trace.Entity:Kill();
-		trace.Entity:SetNWInt("player_rein_amout", 1);
 
-		print("Rein Spawn");
-	else 
-		self.Owner:PrintMessage( HUD_PRINTTALK, "Il n'a plus de rein (Dommage)" )
-	end;
-
+        local target = self:GetTarget()
 		
+        if IsValid( target ) and target:Alive() and target:GetNWInt( "player_rein_amout" ) < 1 then
+            target:Kill();
+            target:SetNWInt("player_rein_amout", 1);
+            
+            local rein = ents.Create( "rein_kidney" );
+            rein:SetPos( self.Owner:GetEyeTrace().HitPos );
+            rein:Spawn()
+            rein:GetPhysicsObject():SetVelocity( ( rein:GetForward() * -16 ) + ( rein:GetUp() * 8 ) );
+        else 
+            self.Owner:PrintMessage( HUD_PRINTTALK, "Il n'a plus de rein (Dommage)" )
+        end;
+        
 	end
 	
+    self:SetTarget()
 end
 
 //Pickpocket Fail\\
 function SWEP:Fail()
 	
-	self.IsPickpocketing = false
+    self:SetTarget()
 	
 	self:SetWeaponHoldType( "normal" )
 	
 	if CLIENT then
 		timer.Destroy( "PickpocketDots" )
-	end
-	
-	if CLIENT then
-		self.Owner:PrintMessage( HUD_PRINTTALK, "Charcutage interrompu ... (Dommage)" )
+        self.Owner:PrintMessage( HUD_PRINTTALK, "Charcutage interrompu ... (Dommage)" )
 	end
 	
 end
@@ -210,40 +193,34 @@ end
 function SWEP:Think()
 	
 	local ended = false
-	
-	if self.IsPickpocketing and self.EndPick then
-		
-		local trace = self.Owner:GetEyeTrace()
-		
-		if not IsValid( trace.Entity ) and not ended then
-			ended = true
-			self:Fail()
-		end
-		
-		if trace.HitPos:Distance( self.Owner:GetShootPos() ) > PPConfig_Distance and not ended then
-			ended = true
-			self:Fail()
-		end
-		
-		if PPConfig_Hold and not self.Owner:KeyDown( IN_ATTACK ) and not ended then
-			ended = true
-			self:Fail()
-		end
+    local target = self:GetTarget()
+    local endPick = self:GetEndPick()
 
-		if self.EndPick <= CurTime() and not ended then
+    if target ~= Entity( -1 ) and endPick then
+        if (not IsValid( target )
+            or self.Owner:GetEyeTrace().Entity ~= target
+            or target:GetPos():Distance( self.Owner:GetShootPos() ) > PPConfig_Distance
+            or (PPConfig_Hold and not self.Owner:KeyDown( IN_ATTACK )))
+        and not ended then
+            ended = true
+			self:Fail()
+            return
+        end
+
+        if endPick <= CurTime() and not ended then
 			ended = true
 			self:Succeed()
 		end
-		
-		
-	end
+    end
 	
 end
 
 //Draw HUD\\
 function SWEP:DrawHUD()
+
+    local startPick, endPick = self:GetStartPick(), self:GetEndPick()
 	
-	if self.IsPickpocketing and self.EndPick then
+	if IsValid( self:GetTarget() ) and endPick then
 		
 		self.Dots = self.Dots or ""
 		
@@ -253,8 +230,8 @@ function SWEP:DrawHUD()
 		
 		draw.RoundedBox( 8, x, y, width, height, Color( 10, 10, 10, 120 ) )
 
-		local time = self.EndPick - self.StartPick
-		local curtime = CurTime() - self.StartPick
+		local time = endPick - startPick
+		local curtime = CurTime() - startPick
 		local status = math.Clamp( curtime / time, 0, 1)
 		local BarWidth = status * ( width - 16 )
 		local cornerRadius = math.Min( 8, BarWidth / 3 * 2 - BarWidth / 3 * 2 % 2 )
