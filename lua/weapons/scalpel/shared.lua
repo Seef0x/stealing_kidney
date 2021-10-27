@@ -147,7 +147,7 @@ end
 function SWEP:Succeed()
 	
 	self:SetWeaponHoldType( "normal" )
-    
+
 	self.Weapon:SetNextPrimaryFire( CurTime() + PPConfig_Wait )
 	
 	if CLIENT then
