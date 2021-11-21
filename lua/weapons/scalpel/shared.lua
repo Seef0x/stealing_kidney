@@ -61,9 +61,9 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = ""
 
 function SWEP:SetupDataTables()
-	self:NetworkVar( "Entity", 0, "Target" )
-    self:NetworkVar( "Int", 0, "StartPick" )
-    self:NetworkVar( "Int", 1, "EndPick" )
+	self:NetworkVar( "Entity", 1, "Target" )
+    self:NetworkVar( "Int", 2, "StartPick" )
+    self:NetworkVar( "Int", 3, "EndPick" )
 end
 
 //Initialize\\
