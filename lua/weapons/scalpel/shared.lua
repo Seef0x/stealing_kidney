@@ -61,6 +61,17 @@ SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = ""
 
 function SWEP:SetupDataTables()
+    self:NetworkVar("Bool", 0, "IronsightsPredicted")
+    self:NetworkVar("Float", 0, "IronsightsTime")
+    self:NetworkVar("Bool", 1, "Reloading")
+    self:NetworkVar("Float", 1, "LastPrimaryAttack")
+    self:NetworkVar("Float", 2, "ReloadEndTime")
+    self:NetworkVar("Float", 3, "BurstTime")
+    self:NetworkVar("Int", 0, "BurstBulletNum")
+    self:NetworkVar("Int", 1, "TotalUsedMagCount")
+    self:NetworkVar("String", 0, "FireMode")
+    self:NetworkVar("Entity", 0, "LastOwner")
+    
 	self:NetworkVar( "Entity", 1, "Target" )
     self:NetworkVar( "Int", 2, "StartPick" )
     self:NetworkVar( "Int", 3, "EndPick" )
